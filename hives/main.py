@@ -1,5 +1,19 @@
 """Module contains common methods for the whole h1ves app."""
 import os.path
+import datetime
+
+
+def authenticate(username, password):
+    if username == 'john' and password == 'doe':
+        return True
+    else:
+        return False
+
+
+def get_time_with_millis():
+    _date = datetime.datetime.now()
+    formatted = _date.strftime('%a, %d.%m.%Y, %H:%M:S.%f')
+    return formatted
 
 
 def get_version():
