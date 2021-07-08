@@ -1,6 +1,11 @@
 """Module contains common methods for the whole h1ves app."""
 import os.path
 import datetime
+# from datetime import timedelta
+
+
+def get_duration(start_date, end_date):
+    return end_date - start_date
 
 
 def authenticate(username, password):
@@ -13,7 +18,8 @@ def authenticate(username, password):
 def get_time_with_millis():
     _date = datetime.datetime.now()
     formatted = _date.strftime('%a, %d.%m.%Y, %H:%M:S.%f')
-    return formatted
+    return {'formatted': formatted,
+            'datetime': _date}
 
 
 def get_version():

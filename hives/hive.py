@@ -23,6 +23,7 @@ def start():
               'version': main.get_version(),
               'datetime': _date}
     _log['end_date'] = _date
+    _log['result'] = result
     log.log(_log)
     return result
 
@@ -75,6 +76,7 @@ def add_hive(req):
         _log['params'] = req.get_json()
         hive_json = req.get_json()
         if hive_json is not None and hive_json['id'] is not None:
+            db.append(hive_json)
             db[hive_json['id']] = hive_json
             _log['result'] = hive_json
             _date = main.get_time_with_millis()
