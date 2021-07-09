@@ -132,3 +132,4 @@ dmypy.json
 .gitignore
 tags
 .*.swp
+tmp

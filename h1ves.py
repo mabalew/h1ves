@@ -1,23 +1,40 @@
 from flask import Flask, request
 from flask_httpauth import HTTPBasicAuth
-from hives import main
-from hives import hive
-from hives import log
+from flask_restx import Api, Resource
+from hives import main, hive, log
 
 
 app = Flask(__name__)
+api = Api(app=app, description="Hives API", title="Hives API")
 auth = HTTPBasicAuth()
+authorizations = {
+    'basicAuth': {
+        'type': 'basic',
+        'in': 'header',
+        'name': 'Authorization'
+    }
+}
+#    'apikey': {
+#        'type': 'apiKey',
+#        'in': 'header',
+#        'name': 'X-API-KEY'
+#
+#    }
+ns = api.namespace('hive', description='Operations on hives',
+                   security='apikey', authorizations=authorizations)
+api.add_namespace(ns)
 
 
-def get_header(start_date, end_date, status, message, start_date_obj,
-               end_date_obj):
-    if start_date_obj == '' or end_date_obj == '':
+def get_header(start_date, end_date, status, message, start_date_obj=None,
+               end_date_obj=None):
+    if start_date_obj is None or end_date_obj is None:
         duration = None
     else:
         duration = end_date_obj - start_date_obj
-    header = {'version': main.get_version(),
+    version = main.get_version()
+    header = {'version': version,
               'start_date': start_date,
-              'end_date': main.get_time_with_millis(),
+              'end_date': end_date,
               'status': status,
               'message': message,
               'duration': str(duration)}
@@ -32,7 +49,7 @@ def authenticate(username, password):
         if main.authenticate(username, password):
             end_date = main.get_time_with_millis()['formatted']
             params = {'username': username, 'password': password}
-            _log = get_header(start_date, end_date, 'ok', header_message, 1, 1)
+            _log = get_header(start_date, end_date, 'ok', header_message)
             _log['result'] = True
             _log['params'] = params
             log.log(_log)
@@ -48,144 +65,217 @@ def authenticate(username, password):
             return False
 
 
-@app.route("/")
 @auth.login_required
-def start():
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    body = hive.start()
-    message = 'This endpoint is just to confirm that hives module wworks'
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
+@api.doc(security='apikey')
+@ns.route("/v1/info")
+class Info(Resource):
+    @api.doc(security='basicAuth')
+    def info(self):
+        """
+        This endpoint returns hives app version number.
+        @return: json containings hives app version number in the body.
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        body = main.get_version()
+        message = 'This endpoint returns hives app version number.'
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        return {'header': header,
+                'version': body}
 
-    return {'header': header,
-            'body': body}
+    def post(self):
+        """
+        This endpoint return license text.
+        @return: json containings license text
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        body = main.get_license()
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        message = 'This endpoint returns license text.'
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        return {'header': header,
+                'license': body}
+
+    def get(self):
+        """
+        Returns all logs of hives
+        @return: json containings all the logs of hive app
+        """
+        message = 'This endpoint returns all logs'
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        body = log.get_logs()
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        return {'header': header,
+                'body': body}
 
 
-@app.route("/version")
 @auth.login_required
-def get_version():
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    body = main.get_version()
-    message = 'This endpoint returns hives version number.'
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
-    return {'header': header,
-            'version': body}
+@api.doc(security='apikey')
+@ns.route("/v1/")
+class HiveList(Resource):
+    """
+    List all hives, get selected hive and adds new one.
+    """
+    def post(self):
+        """
+        This endpoint is just to confirm that hives module works.
+        @return: small json confirming application to be ready to work
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        body = hive.start()
+        message = 'This endpoint is just to confirm that hives module wworks'
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
 
+        return {'header': header,
+                'body': body}
 
-@app.route("/license")
-@auth.login_required
-def get_license():
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    body = main.get_license()
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    message = 'This endpoint returns license text.'
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
-    return {'header': header,
-            'license': body}
+    def get(self):
+        """
+        Get all hives.
+        @return: json containings list of all hives
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        message = "This endpoint lists all hivees."
+        body = hive.get_hives()
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        response = {'header': header,
+                    'body': body}
+        return response
 
-
-# @app.route("/hive")
-# @auth.login_required
-# def get_hive():
-    # start_date = main.get_time_with_millis()
-    # body = hive.get_hive()}
-    # message = 'This endpoint returns details of selected hive.'
-    # end_date = main.get_time_with_millis()
-    # header = get_header(start_date, end_date, None, None, 'ok',
-    #                     message)
-    # return {'header': header,
-    #        'body': body}
-
-
-@app.route("/hive/<int:id>", methods=['POST', 'GET', 'PUT', 'DELETE'])
-@auth.login_required
-def _hive(id):
-    """CRUD operations on hive."""
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    # Prepare header
-    header = get_header(main.get_time_with_millis())
-    if request.method == 'GET':
-        """Returns selected hive details."""
-        message = "This endpoint adds new hive with id {}.".format(id)
-        body = hive.get_hive(id)
-    elif request.method == 'PUT':
-        """Updates selected hive with data provided"""
-        message = "This endpoint updates hive with id {}.".format(id)
-        body = hive.update_hive(id, request)
-    elif request.method == 'DELETE':
-        """Removes selected hive."""
-        message = "This endpoint deletes hive with id {}.".format(id)
-        body = hive.delete_hive(id)
-    elif request.method == 'POST':
-        """Adds new hive."""
+    def put(self):
+        """
+        Adds new hive.
+        @param: int - hive identifier
+        @param: json representing new hive
+        @return: body of new hive with identifier
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        # Prepare header
+        header = get_header(main.get_time_with_millis())
         message = "This endpoint adds new hive."
         body = hive.add_hive(request)
-    else:
-        message = 'Incorrect call of endpoint.'
-
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
-    response = {'header': header,
-                'body': body}
-    return response
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        response = {'header': header,
+                    'body': body}
+        return response
 
 
-@app.route("/hives")
 @auth.login_required
-def hives():
-    """Get all hives."""
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    message = "This endpoint lists all hivees."
-    body = hive.get_hives()
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
-    response = {'header': header,
-                'body': body}
-    return response
+@api.doc(security='apikey')
+@api.param('id', 'Identifier of hive')
+@ns.route("/v1/<int:id>")
+@ns.param('id', 'Hive identifier')
+class Hive(Resource):
+    """
+    Updates, deletes and retrieve existing hive.
+    """
+    def patch(self, id):
+        """
+        Updates selected hive with data provided
+        @param: int - hive identifier
+        @return json containing updated hive in body
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        message = "This endpoint updates hive with id {}.".format(id)
+        body = hive.update_hive(id, request)
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        response = {'header': header,
+                    'body': body}
+        return response
 
+    def delete(self, id):
+        """
+        Removes selected hive.
+        @param: int - hive identifier
+        @return: json containing delete hive in body
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        message = "This endpoint deletes hive with id {}.".format(id)
+        body = hive.delete_hive(id)
+        end_date_resp = main.get_time_with_millis()
+        end_date = end_date_resp['formatted']
+        end_date_obj = end_date_resp['datetime']
+        header = get_header(start_date, end_date, 'ok', message, start_date_obj,
+                            end_date_obj)
+        response = {'header': header,
+                    'body': body}
+        return response
 
-@app.route("/logs")
-@auth.login_required
-def logs():
-    """Returns all logs"""
-    message = 'This endpoint returns all logs'
-    start_date_resp = main.get_time_with_millis()
-    start_date = start_date_resp['formatted']
-    start_date_obj = start_date_resp['datetime']
-    body = log.get_logs()
-    end_date_resp = main.get_time_with_millis()
-    end_date = end_date_resp['formatted']
-    end_date_obj = end_date_resp['datetime']
-    header = get_header(start_date, end_date, 'ok', message, start_date_obj,
-                        end_date_obj)
-    return {'header': header,
-            'body': body}
+    @api.doc(responses={400: 'No hive id provided',
+                        401: 'Not authorized',
+                        200: 'ok'},
+             )
+    def get(self, id):
+        """
+        Returns selected hive details.
+        @param: int - hive identifier
+        @return: json containing hive details in body
+        """
+        start_date_resp = main.get_time_with_millis()
+        start_date = start_date_resp['formatted']
+        start_date_obj = start_date_resp['datetime']
+        # id = flask.request.args.get('id')
+        message = "This endpoint retrives hive with id {}.".format(id)
+        if id is None:
+            end_date_resp = main.get_time_with_millis()
+            end_date = end_date_resp['formatted']
+            end_date_obj = end_date_resp['datetime']
+            header = get_header(start_date, end_date, 'error', message,
+                                start_date_obj, end_date_obj)
+            body = {'error': {'code': 400, 'message': 'no hive id provided'}}
+        else:
+            body = hive.get_hive(id)
+            end_date_resp = main.get_time_with_millis()
+            end_date = end_date_resp['formatted']
+            end_date_obj = end_date_resp['datetime']
+            header = get_header(start_date, end_date, 'ok', message,
+                                start_date_obj, end_date_obj)
+        response = {'header': header,
+                    'body': body}
+        return response
+
 
 if __name__ == '__main__':
     app.run()
