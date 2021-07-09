@@ -21,7 +21,7 @@ authorizations = {
 #
 #    }
 ns = api.namespace('hive', description='Operations on hives',
-                   security='apikey', authorizations=authorizations)
+                   security='basicAuth', authorizations=authorizations)
 api.add_namespace(ns)
 
 
@@ -32,11 +32,13 @@ def get_header(start_date, end_date, status, message, start_date_obj=None,
     else:
         duration = end_date_obj - start_date_obj
     version = main.get_version()
+    credits = main.get_credits()
     header = {'version': version,
               'start_date': start_date,
               'end_date': end_date,
               'status': status,
               'message': message,
+              'credits': credits,
               'duration': str(duration)}
     return header
 
@@ -65,14 +67,13 @@ def authenticate(username, password):
             return False
 
 
-@auth.login_required
-@api.doc(security='apikey')
 @ns.route("/v1/info")
 class Info(Resource):
     @api.doc(security='basicAuth')
-    def info(self):
+    @auth.login_required
+    def patch(self):
         """
-        This endpoint returns hives app version number.
+        Get hives app version number.
         @return: json containings hives app version number in the body.
         """
         start_date_resp = main.get_time_with_millis()
@@ -88,9 +89,11 @@ class Info(Resource):
         return {'header': header,
                 'version': body}
 
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def post(self):
         """
-        This endpoint return license text.
+        Get license text.
         @return: json containings license text
         """
         start_date_resp = main.get_time_with_millis()
@@ -106,6 +109,8 @@ class Info(Resource):
         return {'header': header,
                 'license': body}
 
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def get(self):
         """
         Returns all logs of hives
@@ -125,16 +130,16 @@ class Info(Resource):
                 'body': body}
 
 
-@auth.login_required
-@api.doc(security='apikey')
-@ns.route("/v1/")
+@ns.route("/v1")
 class HiveList(Resource):
     """
     List all hives, get selected hive and adds new one.
     """
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def post(self):
         """
-        This endpoint is just to confirm that hives module works.
+        Get confirmation that hives module works.
         @return: small json confirming application to be ready to work
         """
         start_date_resp = main.get_time_with_millis()
@@ -151,6 +156,8 @@ class HiveList(Resource):
         return {'header': header,
                 'body': body}
 
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def get(self):
         """
         Get all hives.
@@ -170,6 +177,8 @@ class HiveList(Resource):
                     'body': body}
         return response
 
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def put(self):
         """
         Adds new hive.
@@ -180,8 +189,6 @@ class HiveList(Resource):
         start_date_resp = main.get_time_with_millis()
         start_date = start_date_resp['formatted']
         start_date_obj = start_date_resp['datetime']
-        # Prepare header
-        header = get_header(main.get_time_with_millis())
         message = "This endpoint adds new hive."
         body = hive.add_hive(request)
         end_date_resp = main.get_time_with_millis()
@@ -194,8 +201,6 @@ class HiveList(Resource):
         return response
 
 
-@auth.login_required
-@api.doc(security='apikey')
 @api.param('id', 'Identifier of hive')
 @ns.route("/v1/<int:id>")
 @ns.param('id', 'Hive identifier')
@@ -203,6 +208,8 @@ class Hive(Resource):
     """
     Updates, deletes and retrieve existing hive.
     """
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def patch(self, id):
         """
         Updates selected hive with data provided
@@ -223,6 +230,8 @@ class Hive(Resource):
                     'body': body}
         return response
 
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def delete(self, id):
         """
         Removes selected hive.
@@ -247,6 +256,8 @@ class Hive(Resource):
                         401: 'Not authorized',
                         200: 'ok'},
              )
+    @api.doc(security='basicAuth')
+    @auth.login_required
     def get(self, id):
         """
         Returns selected hive details.
@@ -276,6 +287,10 @@ class Hive(Resource):
                     'body': body}
         return response
 
+
+api.add_resource(HiveList, '/hive/v1')
+api.add_resource(Hive, '/hive/v1/<int:id>')
+api.add_resource(Info, '/hive/v1/info')
 
 if __name__ == '__main__':
     app.run()

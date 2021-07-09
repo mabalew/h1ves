@@ -27,6 +27,11 @@ def get_version():
     return read_file('VERSION')
 
 
+def get_credits():
+    """Returns credits."""
+    return read_file('CREDITS')
+
+
 def get_license():
     """Returns license text."""
     return read_file('LICENSE')
