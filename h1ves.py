@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_httpauth import HTTPBasicAuth
 from flask_restx import Api, Resource
 from hives import main, hive, log
@@ -137,7 +137,7 @@ class HiveList(Resource):
     """
     @api.doc(security='basicAuth')
     @auth.login_required
-    def post(self):
+    def put(self):
         """
         Get confirmation that hives module works.
         @return: small json confirming application to be ready to work
@@ -178,8 +178,9 @@ class HiveList(Resource):
         return response
 
     @api.doc(security='basicAuth')
+    @api.param('json', 'Hive JSON representation')
     @auth.login_required
-    def put(self):
+    def post(self):
         """
         Adds new hive.
         @param: int - hive identifier
@@ -190,7 +191,8 @@ class HiveList(Resource):
         start_date = start_date_resp['formatted']
         start_date_obj = start_date_resp['datetime']
         message = "This endpoint adds new hive."
-        body = hive.add_hive(request)
+        json = request.args.get('json')
+        body = hive.add_hive(jsonify(json))
         end_date_resp = main.get_time_with_millis()
         end_date = end_date_resp['formatted']
         end_date_obj = end_date_resp['datetime']

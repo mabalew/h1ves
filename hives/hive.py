@@ -1,9 +1,14 @@
 """Module to operate on hives."""
+import json
+from flask import jsonify
 from hives import main
 from hives import log
+from hives.dao.InMemoryHiveDAO import HiveDAO
 
 
 db = []
+
+dao = HiveDAO()
 
 
 def get_log(function, result, param, status):
@@ -32,12 +37,13 @@ def get_hives():
     _date = main.get_time_with_millis()['formatted']
     _log = get_log('hive.get_hives', '', '', 'ok')
     _log['start_date'] = _date
-    if len(db) > 0:
-        _log['result'] = db
+    result = dao.get_all()
+    if len(result) > 0:
+        _log['result'] = result
         log.log(_log)
         _date = main.get_time_with_millis()['formatted']
         _log['end_date'] = _date
-        return db
+        return result
     else:
         _log['result'] = None
         _log['status'] = 'error'
@@ -51,14 +57,13 @@ def get_hive(id):
     _date = main.get_time_with_millis()['formatted']
     _log = get_log('hive.get_hive', '', id, 'ok')
     _log['start_date'] = _date
-    if len(db) > 0:
-        for i in range(len(db)):
-            if db[i]['id'] == id:
-                _log['result'] = db[i]
-                _date = main.get_time_with_millis()['formatted']
-                _log['end_date'] = _date
-                log.log(_log)
-                return db[i]
+    result = dao.get_hive(id)
+    if result is not None:
+        _log['result'] = db[i]
+        _date = main.get_time_with_millis()['formatted']
+        _log['end_date'] = _date
+        log.log(_log)
+        return result
     result = {'error': 'hive not found'}
     _log['status'] = 'error'
     _log['result'] = result
@@ -73,16 +78,15 @@ def add_hive(req):
     _log = get_log('hive.add_hive', '', '', 'ok')
     _log['start_date'] = _date
     if req is not None:
-        _log['params'] = req.get_json()
-        hive_json = req.get_json()
-        if hive_json is not None and hive_json['id'] is not None:
-            db.append(hive_json)
-            db[hive_json['id']] = hive_json
-            _log['result'] = hive_json
+        _log['params'] = req
+        print(req)
+        if req is not None:
+            result = dao.add_hive(req)
+            _log['result'] = result
             _date = main.get_time_with_millis()['formatted']
             _log['end_date'] = _date
             log.log(_log)
-            return hive_json
+            return result
     result = {'error': 'no input data provided'}
     _log['status'] = 'error'
     _log['result'] = result
@@ -93,6 +97,7 @@ def add_hive(req):
 
 
 def update_hive(id, req):
+    db.append({'id': 0, 'name': 'hive no #0'})
     _date = main.get_time_with_millis()['formatted']
     _log = get_log('hive.update_hive', '', '', 'ok')
     _log['start_date'] = _date
